@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- A tiny week grid: three rows warming from red to green, like a streak building up. Transparent background. -->
+  <rect x="1" y="1" width="9" height="9" rx="2.5" fill="#e5484d"/>
+  <rect x="11.5" y="1" width="9" height="9" rx="2.5" fill="#ef8b3c"/>
+  <rect x="22" y="1" width="9" height="9" rx="2.5" fill="#e8b93a"/>
+  <rect x="1" y="11.5" width="9" height="9" rx="2.5" fill="#e0c23d"/>
+  <rect x="11.5" y="11.5" width="9" height="9" rx="2.5" fill="#b3cf3f"/>
+  <rect x="22" y="11.5" width="9" height="9" rx="2.5" fill="#7cc24f"/>
+  <rect x="1" y="22" width="9" height="9" rx="2.5" fill="#5bb85c"/>
+  <rect x="11.5" y="22" width="9" height="9" rx="2.5" fill="#43b062"/>
+  <rect x="22" y="22" width="9" height="9" rx="2.5" fill="#34a865"/>
+</svg>
