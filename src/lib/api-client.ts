@@ -15,6 +15,7 @@ import type {
   UpdateOkrInput,
   UpdateReflectionInput,
 } from "@/lib/types";
+import type { MoveDirection } from "@/lib/milestones";
 
 /** Thrown for any non-2xx response; `message` is the server's `{ error }` string when present.
  *  `payload` is the parsed error body, for responses that carry more than a message. */
@@ -93,8 +94,8 @@ export const api = {
   updateMilestone: (id: string, input: UpdateMilestoneInput) =>
     request<{ milestone: Milestone }>(`/api/milestones/${enc(id)}`, json("PATCH", input)).then((r) => r.milestone),
   deleteMilestone: (id: string) => request<{ ok: true }>(`/api/milestones/${enc(id)}`, { method: "DELETE" }),
-  reorderMilestones: (okrId: string, ids: string[]) =>
-    request<{ ok: true }>("/api/milestones/reorder", json("PUT", { okrId, ids })),
+  moveMilestone: (id: string, direction: MoveDirection) =>
+    request<{ ok: true }>(`/api/milestones/${enc(id)}/move`, json("POST", { direction })),
 
   listReflections: () => request<{ reflections: Reflection[] }>("/api/reflections").then((r) => r.reflections),
   createReflection: (input: CreateReflectionInput) =>

@@ -150,7 +150,7 @@ export function GoalsPanel({ snapshot, checkIns, reload, onClose }: GoalsPanelPr
             showCloseButton={false}
             // Don't land focus (and a focus ring) on the first header button when opening.
             onOpenAutoFocus={(e) => e.preventDefault()}
-            className="max-h-[85dvh] gap-0 overflow-y-auto p-0 sm:max-w-3xl"
+            className="max-h-[85dvh] gap-0 overflow-y-auto p-0 sm:max-w-4xl"
           >
             <DialogTitle className="sr-only">{detail.title}</DialogTitle>
             <OkrCard

@@ -25,6 +25,8 @@ const milestone = z.object({
   done: z.boolean(),
   doneAt: day.nullable(),
   position: z.number().int(),
+  // Added later; older backups have every milestone at the top level.
+  parentId: z.string().nullable().default(null),
 });
 
 const goal = z

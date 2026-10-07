@@ -1,0 +1,2 @@
+ALTER TABLE `milestones` ADD `parent_id` text REFERENCES milestones(id) ON DELETE set null;--> statement-breakpoint
+CREATE INDEX `milestones_parent_idx` ON `milestones` (`okr_id`,`parent_id`,`position`);

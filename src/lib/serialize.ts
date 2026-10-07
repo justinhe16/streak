@@ -17,7 +17,15 @@ export function toGoal(row: GoalRow): Goal {
 }
 
 export function toMilestone(row: MilestoneRow): Milestone {
-  return { id: row.id, okrId: row.okrId, text: row.text, done: row.done, doneAt: row.doneAt, position: row.position };
+  return {
+    id: row.id,
+    okrId: row.okrId,
+    text: row.text,
+    done: row.done,
+    doneAt: row.doneAt,
+    position: row.position,
+    parentId: row.parentId,
+  };
 }
 
 export function toOkr(row: OkrRow, milestones: MilestoneRow[]): Okr {

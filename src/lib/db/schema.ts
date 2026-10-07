@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { check, index, integer, primaryKey, sqliteTable, text, type AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 
 /** Dates are local calendar days as `YYYY-MM-DD`; timestamps are ISO strings. */
 
@@ -25,9 +25,15 @@ export const milestones = sqliteTable(
     text: text("text").notNull(),
     done: integer("done", { mode: "boolean" }).notNull().default(false),
     doneAt: text("done_at"),
+    /** Order among siblings (milestones with the same parent). */
     position: integer("position").notNull().default(0),
+    /** Prerequisite: this milestone can't be checked off until its parent is done. Null = top level. */
+    parentId: text("parent_id").references((): AnySQLiteColumn => milestones.id, { onDelete: "set null" }),
   },
-  (t) => [index("milestones_okr_idx").on(t.okrId, t.position)],
+  (t) => [
+    index("milestones_okr_idx").on(t.okrId, t.position),
+    index("milestones_parent_idx").on(t.okrId, t.parentId, t.position),
+  ],
 );
 
 /** Frequency and date range are fixed once created; only text and the OKR link change. */

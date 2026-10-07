@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { parseExportFile } from "@/lib/backup-format";
 import { exportBackupString, importBackup } from "@/lib/backup-io";
@@ -55,6 +56,27 @@ describe("export / import", () => {
     const file = parseExportFile(JSON.parse(exportBackupString(src)));
     importBackup(dst, file, { replace: true });
     expect(dst.select().from(reflections).all().map((r) => r.id)).toEqual(["r1"]);
+  });
+
+  it("restores a milestone chain even when a child was stored before its parent", () => {
+    // m0 is inserted first (lower rowid) but nested under m2, which is nested under m1.
+    src.insert(milestones).values({ id: "m0", okrId: "o1", text: "Bench 225" }).run();
+    src.insert(milestones).values({ id: "m2", okrId: "o1", text: "Bench 185" }).run();
+    src.update(milestones).set({ parentId: "m2" }).where(eq(milestones.id, "m0")).run();
+    src.update(milestones).set({ parentId: "m1" }).where(eq(milestones.id, "m2")).run();
+
+    const file = parseExportFile(JSON.parse(exportBackupString(src)));
+    expect(file.milestones.map((m) => m.id)).toEqual(["m1", "m0", "m2"]); // child before parent in the file
+    importBackup(dst, file, { replace: false });
+    const parents = Object.fromEntries(dst.select().from(milestones).all().map((m) => [m.id, m.parentId]));
+    expect(parents).toEqual({ m1: null, m0: "m2", m2: "m1" });
+  });
+
+  it("imports older backups without milestone parents as top level", () => {
+    const raw = JSON.parse(exportBackupString(src));
+    for (const m of raw.milestones) delete m.parentId;
+    importBackup(dst, parseExportFile(raw), { replace: false });
+    expect(dst.select().from(milestones).all().every((m) => m.parentId === null)).toBe(true);
   });
 
   it("rejects foreign files", () => {

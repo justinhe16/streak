@@ -32,6 +32,38 @@ export function exportBackupString(db: Db): string {
   return [...exportChunks(db)].join("");
 }
 
+type BackupMilestone = ParsedExportFile["milestones"][number];
+
+/**
+ * Milestones ordered so each parent is inserted before its children (the
+ * self-reference would fail otherwise). A parent that's in neither the file nor
+ * the database is dropped, leaving the child at the top level.
+ */
+function parentsFirst(db: Db, rows: readonly BackupMilestone[]): BackupMilestone[] {
+  const inFile = new Map(rows.map((r) => [r.id, r]));
+  const inDb = new Set(db.select({ id: milestones.id }).from(milestones).all().map((r) => r.id));
+  const out: BackupMilestone[] = [];
+  const placed = new Set<string>();
+  const visiting = new Set<string>();
+
+  function place(r: BackupMilestone) {
+    if (placed.has(r.id)) return;
+    let parentId = r.parentId;
+    if (parentId !== null && inFile.has(parentId) && !visiting.has(parentId)) {
+      visiting.add(r.id);
+      place(inFile.get(parentId)!);
+      visiting.delete(r.id);
+    } else if (parentId !== null && !inDb.has(parentId)) {
+      parentId = null; // missing, or part of a corrupt cycle
+    }
+    placed.add(r.id);
+    out.push({ ...r, parentId });
+  }
+
+  rows.forEach(place);
+  return out;
+}
+
 export type ImportResult = {
   mode: "merge" | "replace";
   inserted: Record<TableKey, number>;
@@ -53,7 +85,8 @@ export function importBackup(db: Db, file: ParsedExportFile, { replace }: { repl
       for (const [, table] of [...TABLES].reverse()) db.delete(table).run();
     }
     for (const [key, table] of TABLES) {
-      for (const row of file[key]) {
+      const rows = key === "milestones" ? parentsFirst(db, file.milestones) : file[key];
+      for (const row of rows) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- rows were validated against the table's shape
         const res = db.insert(table).values(row as any).onConflictDoNothing().run();
         if (res.changes > 0) inserted[key]++;

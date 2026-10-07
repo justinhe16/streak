@@ -21,7 +21,10 @@ export type Milestone = {
   text: string;
   done: boolean;
   doneAt: string | null;
+  /** Order among siblings. */
   position: number;
+  /** Prerequisite milestone; this one is locked until it's done. Null = top level. */
+  parentId: string | null;
 };
 
 export type Okr = {

@@ -158,7 +158,7 @@ export function OkrCard({
         )}
       </header>
 
-      <div className="grid gap-x-6 gap-y-6 md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+      <div className="grid gap-x-8 gap-y-6 md:grid-cols-2">
         <div className="flex min-w-0 flex-col gap-6">
           <Section label="Milestones">
             <MilestoneList okrId={okr.id} milestones={okr.milestones} onChanged={onChanged} />

@@ -1,4 +1,4 @@
-import { eq, max } from "drizzle-orm";
+import { and, eq, isNull, max } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { milestones, okrs } from "@/lib/db/schema";
@@ -19,7 +19,12 @@ export async function POST(request: Request, { params }: Ctx) {
     const parsed = await readJson(request, createSchema);
     if ("error" in parsed) return parsed.error;
 
-    const last = db.select({ p: max(milestones.position) }).from(milestones).where(eq(milestones.okrId, okrId)).get();
+    // New milestones start at the top level, after the existing top-level ones.
+    const last = db
+      .select({ p: max(milestones.position) })
+      .from(milestones)
+      .where(and(eq(milestones.okrId, okrId), isNull(milestones.parentId)))
+      .get();
     const id = crypto.randomUUID();
     db.insert(milestones)
       .values({ id, okrId, text: parsed.data.text, position: (last?.p ?? -1) + 1 })
