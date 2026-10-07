@@ -28,6 +28,7 @@ import { BUILD_STATUS_STYLES } from "@/components/builds/build-status";
 import { GoalRow } from "./goal-row";
 import { ROW_INSET, Section, StatChip } from "./layout";
 import { MilestoneList } from "./milestone-list";
+import { milestoneCounts } from "@/lib/milestones";
 
 export const OKR_STATUS_STYLES: Record<OkrStatus, string> = {
   active: "bg-muted text-muted-foreground",
@@ -76,7 +77,7 @@ export function OkrCard({
 }: OkrCardProps) {
   const avg = averageCredit(goals, checkIns, today);
   const avgColor = scoreColor(avg);
-  const done = okr.milestones.filter((m) => m.done).length;
+  const { done, failed, total } = milestoneCounts(okr.milestones);
 
   return (
     <article className={cn("flex flex-col gap-6 px-4 py-6 sm:px-6 sm:py-7", className)}>
@@ -93,7 +94,8 @@ export function OkrCard({
                 className="score-text"
               />
             )}
-            <StatChip value={`${done}/${okr.milestones.length}`} label="milestones" />
+            <StatChip value={`${done}/${total}`} label="milestones" />
+            {failed > 0 && <StatChip value={failed} label="failed" className="text-destructive" />}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon-sm" aria-label={`Actions for ${okr.title}`} className="text-muted-foreground ml-1">
@@ -161,7 +163,12 @@ export function OkrCard({
       <div className="grid gap-x-8 gap-y-6 md:grid-cols-2">
         <div className="flex min-w-0 flex-col gap-6">
           <Section label="Milestones">
-            <MilestoneList okrId={okr.id} milestones={okr.milestones} onChanged={onChanged} />
+            <MilestoneList
+              okrId={okr.id}
+              canFail={okr.timeframe !== null}
+              milestones={okr.milestones}
+              onChanged={onChanged}
+            />
           </Section>
 
           {builds.length > 0 && (

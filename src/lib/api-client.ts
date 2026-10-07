@@ -92,7 +92,7 @@ export const api = {
       (r) => r.milestone,
     ),
   updateMilestone: (id: string, input: UpdateMilestoneInput) =>
-    request<{ milestone: Milestone }>(`/api/milestones/${enc(id)}`, json("PATCH", input)).then((r) => r.milestone),
+    request<{ milestone: Milestone; alsoFailed: number }>(`/api/milestones/${enc(id)}`, json("PATCH", input)),
   deleteMilestone: (id: string) => request<{ ok: true }>(`/api/milestones/${enc(id)}`, { method: "DELETE" }),
   moveMilestone: (id: string, direction: MoveDirection) =>
     request<{ ok: true }>(`/api/milestones/${enc(id)}/move`, json("POST", { direction })),

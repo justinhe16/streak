@@ -23,8 +23,10 @@ export const milestones = sqliteTable(
       .notNull()
       .references(() => okrs.id, { onDelete: "cascade" }),
     text: text("text").notNull(),
-    done: integer("done", { mode: "boolean" }).notNull().default(false),
-    doneAt: text("done_at"),
+    /** `open`, `done` or `failed` (failing is only offered on OKRs with a timeframe). */
+    status: text("status").notNull().default("open"),
+    /** Day it was completed or failed; null while open. */
+    resolvedAt: text("resolved_at"),
     /** Order among siblings (milestones with the same parent). */
     position: integer("position").notNull().default(0),
     /** Prerequisite: this milestone can't be checked off until its parent is done. Null = top level. */

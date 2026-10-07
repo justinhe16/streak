@@ -17,6 +17,7 @@ import { Panel, PanelEmpty, PanelLabel } from "@/components/workspace/panel";
 import { api } from "@/lib/api-client";
 import { OKR_STATUS_LABELS, type OkrStatus } from "@/lib/constants";
 import { scoreColor } from "@/lib/score-color";
+import { milestoneCounts } from "@/lib/milestones";
 import { averageCredit, type CheckInSet } from "@/lib/streak";
 import type { Goal, Okr, Snapshot } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -229,7 +230,7 @@ function OkrSummary({
 }) {
   const avg = averageCredit(goals, checkIns, today);
   const avgColor = scoreColor(avg);
-  const done = okr.milestones.filter((m) => m.done).length;
+  const { done, failed, total } = milestoneCounts(okr.milestones);
 
   return (
     <section className="border-border/70 rounded-xl border">
@@ -257,15 +258,15 @@ function OkrSummary({
           </span>
           {okr.timeframe && <span className="text-muted-foreground text-[11px]">{okr.timeframe}</span>}
           <span className="text-muted-foreground ml-auto text-[11px] tabular-nums">
-            {done}/{okr.milestones.length} milestones
+            {done}/{total} milestones
+            {failed > 0 && <span className="text-destructive"> · {failed} failed</span>}
           </span>
         </span>
-        {okr.milestones.length > 0 && (
-          <span className="bg-muted h-1 w-full overflow-hidden rounded-full">
-            <span
-              className="bg-foreground/60 block h-full rounded-full transition-[width]"
-              style={{ width: `${(done / okr.milestones.length) * 100}%` }}
-            />
+        {total > 0 && (
+          // Done, then failed, as two segments of one bar.
+          <span className="bg-muted flex h-1 w-full overflow-hidden rounded-full">
+            <span className="bg-foreground/60 h-full transition-[width]" style={{ width: `${(done / total) * 100}%` }} />
+            <span className="bg-destructive/60 h-full transition-[width]" style={{ width: `${(failed / total) * 100}%` }} />
           </span>
         )}
       </button>

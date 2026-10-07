@@ -1,4 +1,11 @@
-import { BUILD_STATUSES, OKR_STATUSES, type BuildStatus, type OkrStatus } from "./constants";
+import {
+  BUILD_STATUSES,
+  MILESTONE_STATUSES,
+  OKR_STATUSES,
+  type BuildStatus,
+  type MilestoneStatus,
+  type OkrStatus,
+} from "./constants";
 import type { BuildRow, GoalRow, MilestoneRow, OkrRow, ReflectionRow } from "./db/schema";
 import type { Build, Goal, Milestone, Okr, Reflection } from "./types";
 
@@ -21,8 +28,8 @@ export function toMilestone(row: MilestoneRow): Milestone {
     id: row.id,
     okrId: row.okrId,
     text: row.text,
-    done: row.done,
-    doneAt: row.doneAt,
+    status: (MILESTONE_STATUSES as readonly string[]).includes(row.status) ? (row.status as MilestoneStatus) : "open",
+    resolvedAt: row.resolvedAt,
     position: row.position,
     parentId: row.parentId,
   };

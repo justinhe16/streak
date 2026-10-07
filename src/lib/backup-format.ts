@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BUILD_STATUSES, OKR_STATUSES } from "./constants";
+import { BUILD_STATUSES, MILESTONE_STATUSES, OKR_STATUSES } from "./constants";
 import { isIsoDay } from "./dates";
 
 /** Shape of the file written by GET /api/export. Bump on any incompatible change. */
@@ -18,16 +18,25 @@ const okr = z.object({
   updatedAt: stamp,
 });
 
-const milestone = z.object({
+/** Older backups stored `done` + `doneAt`; map them onto `status` + `resolvedAt`. */
+function upgradeMilestone(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object" || "status" in raw) return raw;
+  const { done, doneAt, ...rest } = raw as { done?: unknown; doneAt?: unknown };
+  return { ...rest, status: done === true ? "done" : "open", resolvedAt: doneAt ?? null };
+}
+
+const milestoneShape = z.object({
   id: z.string().min(1),
   okrId: z.string().min(1),
   text: z.string(),
-  done: z.boolean(),
-  doneAt: day.nullable(),
+  status: z.enum(MILESTONE_STATUSES),
+  resolvedAt: day.nullable(),
   position: z.number().int(),
   // Added later; older backups have every milestone at the top level.
   parentId: z.string().nullable().default(null),
 });
+
+const milestone = z.preprocess(upgradeMilestone, milestoneShape);
 
 const goal = z
   .object({

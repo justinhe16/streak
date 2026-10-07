@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
+  CircleXIcon,
   CornerDownRightIcon,
   IndentDecreaseIcon,
   IndentIncreaseIcon,
@@ -19,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api-client";
 import { formatDay } from "@/lib/dates";
 import { flattenTree, isLocked, type MoveDirection } from "@/lib/milestones";
+import type { MilestoneStatus } from "@/lib/constants";
 import type { Milestone } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ROW_INSET } from "./layout";
@@ -29,11 +31,13 @@ const MAX_INDENT = 6;
 
 type MilestoneListProps = {
   okrId: string;
+  /** Failing is only offered on time-bound OKRs (ones with a timeframe). */
+  canFail: boolean;
   milestones: Milestone[];
   onChanged: () => Promise<void>;
 };
 
-export function MilestoneList({ okrId, milestones, onChanged }: MilestoneListProps) {
+export function MilestoneList({ okrId, canFail, milestones, onChanged }: MilestoneListProps) {
   const [draft, setDraft] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
@@ -53,6 +57,15 @@ export function MilestoneList({ okrId, milestones, onChanged }: MilestoneListPro
     if (!text) return;
     setDraft("");
     await run(() => api.addMilestone(okrId, text), "Could not add the milestone.");
+  }
+
+  function setStatus(m: Milestone, status: MilestoneStatus) {
+    void run(async () => {
+      const { alsoFailed } = await api.updateMilestone(m.id, { status });
+      if (alsoFailed > 0) {
+        toast(`Also failed ${alsoFailed} milestone${alsoFailed === 1 ? "" : "s"} nested under it`);
+      }
+    }, "Could not update the milestone.");
   }
 
   function move(id: string, direction: MoveDirection) {
@@ -89,10 +102,20 @@ export function MilestoneList({ okrId, milestones, onChanged }: MilestoneListPro
               >
                 <LockIcon className="size-3.5" />
               </span>
+            ) : m.status === "failed" ? (
+              <button
+                type="button"
+                onClick={() => setStatus(m, "open")}
+                title="Failed. Click to reopen"
+                aria-label={`${m.text}: failed. Reopen`}
+                className="text-destructive/80 hover:text-destructive grid size-4 shrink-0 place-items-center rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              >
+                <CircleXIcon className="size-4" />
+              </button>
             ) : (
               <Checkbox
-                checked={m.done}
-                onCheckedChange={(v) => void run(() => api.updateMilestone(m.id, { done: v === true }), "Could not update.")}
+                checked={m.status === "done"}
+                onCheckedChange={(v) => setStatus(m, v === true ? "done" : "open")}
                 aria-label={m.text}
               />
             )}
@@ -117,7 +140,8 @@ export function MilestoneList({ okrId, milestones, onChanged }: MilestoneListPro
                 }}
                 className={cn(
                   "min-w-0 flex-1 truncate text-left text-sm",
-                  m.done && "text-muted-foreground line-through decoration-1",
+                  m.status === "done" && "text-muted-foreground line-through decoration-1",
+                  m.status === "failed" && "text-muted-foreground decoration-destructive/60 line-through decoration-1",
                   locked && "text-muted-foreground",
                 )}
                 title="Click to edit"
@@ -125,8 +149,16 @@ export function MilestoneList({ okrId, milestones, onChanged }: MilestoneListPro
                 {m.text}
               </button>
             )}
-            {m.done && m.doneAt && (
-              <span className="text-muted-foreground shrink-0 text-[11px] tabular-nums">{formatDay(m.doneAt)}</span>
+            {m.resolvedAt && (
+              <span
+                className={cn(
+                  "shrink-0 text-[11px] tabular-nums",
+                  m.status === "failed" ? "text-destructive/70" : "text-muted-foreground",
+                )}
+              >
+                {m.status === "failed" ? "Failed " : ""}
+                {formatDay(m.resolvedAt)}
+              </span>
             )}
             {/* Row actions float over the end of the row on hover/focus, so they never squeeze the title. */}
             <div className="bg-popover pointer-events-none absolute inset-y-1 right-1 flex items-center rounded-md pl-1 opacity-0 shadow-[-12px_0_12px_-4px_var(--popover)] transition-opacity group-hover/ms:pointer-events-auto group-hover/ms:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100">
@@ -162,6 +194,18 @@ export function MilestoneList({ okrId, milestones, onChanged }: MilestoneListPro
               >
                 <IndentDecreaseIcon />
               </Button>
+              {canFail && m.status === "open" && (
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Mark failed"
+                  title="Mark failed (anything still open under it fails too)"
+                  onClick={() => setStatus(m, "failed")}
+                  className="hover:text-destructive"
+                >
+                  <CircleXIcon />
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon-xs"

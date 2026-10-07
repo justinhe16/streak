@@ -4,11 +4,13 @@
  * rows, shared by the API (to plan writes) and the UI (to render the tree).
  */
 
+import type { MilestoneStatus } from "./constants";
+
 export type MilestoneNode = {
   id: string;
   parentId: string | null;
   position: number;
-  done: boolean;
+  status: MilestoneStatus | string;
   text: string;
 };
 
@@ -70,11 +72,27 @@ export function flattenTree<T extends MilestoneNode>(ms: readonly T[]): FlatMile
   return out;
 }
 
-/** A milestone is locked while its prerequisite isn't done. Done milestones are never locked. */
+/** An open milestone is locked while its prerequisite isn't done (including when it failed). */
 export function isLocked(m: MilestoneNode, byId: ReadonlyMap<string, MilestoneNode>): boolean {
-  if (m.done) return false;
+  if (m.status !== "open") return false;
   const key = parentKey(m, byId);
-  return key !== null && !byId.get(key)!.done;
+  return key !== null && byId.get(key)!.status !== "done";
+}
+
+/** Ids of every descendant of `id` that's still open (for cascading a failure down the chain). */
+export function openDescendants(ms: readonly MilestoneNode[], id: string): string[] {
+  const { children } = groups(ms);
+  const out: string[] = [];
+  const seen = new Set<string>([id]);
+  const stack = [...(children.get(id) ?? [])];
+  while (stack.length) {
+    const m = stack.pop()!;
+    if (seen.has(m.id)) continue;
+    seen.add(m.id);
+    if (m.status === "open") out.push(m.id);
+    stack.push(...(children.get(m.id) ?? []));
+  }
+  return out;
 }
 
 /** True if making `newParentId` the parent of `id` would create a loop. */
@@ -165,4 +183,15 @@ export function planDelete(ms: readonly MilestoneNode[], id: string): PositionUp
   const siblings = [...(children.get(key) ?? [])];
   siblings.splice(siblings.findIndex((m) => m.id === id), 1, ...(children.get(id) ?? []));
   return diff(byId, new Map([[key, siblings]]));
+}
+
+/** Progress tallies for an OKR's milestones (nesting doesn't matter). */
+export function milestoneCounts(ms: readonly MilestoneNode[]): { done: number; failed: number; total: number } {
+  let done = 0;
+  let failed = 0;
+  for (const m of ms) {
+    if (m.status === "done") done++;
+    else if (m.status === "failed") failed++;
+  }
+  return { done, failed, total: ms.length };
 }

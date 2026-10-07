@@ -1,4 +1,4 @@
-import type { BuildStatus, OkrStatus } from "./constants";
+import type { BuildStatus, MilestoneStatus, OkrStatus } from "./constants";
 
 /** Wire shapes returned by the API and consumed by the UI. */
 
@@ -19,8 +19,9 @@ export type Milestone = {
   id: string;
   okrId: string;
   text: string;
-  done: boolean;
-  doneAt: string | null;
+  status: MilestoneStatus;
+  /** Day it was completed or failed; null while open. */
+  resolvedAt: string | null;
   /** Order among siblings. */
   position: number;
   /** Prerequisite milestone; this one is locked until it's done. Null = top level. */
@@ -81,7 +82,7 @@ export type CreateOkrInput = {
 
 export type UpdateOkrInput = Partial<Pick<Okr, "title" | "description" | "timeframe" | "status">>;
 
-export type UpdateMilestoneInput = Partial<Pick<Milestone, "text" | "done">>;
+export type UpdateMilestoneInput = Partial<Pick<Milestone, "text" | "status">>;
 
 export type CreateReflectionInput = { title: string; body?: string; writtenOn: string };
 

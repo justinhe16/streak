@@ -9,7 +9,8 @@ const NOW = "2026-09-30T12:00:00.000Z";
 
 function seed(db: Db) {
   db.insert(okrs).values({ id: "o1", title: "Get strong", timeframe: "2026", createdAt: NOW, updatedAt: NOW }).run();
-  db.insert(milestones).values({ id: "m1", okrId: "o1", text: "Bench 225", done: true, doneAt: "2026-09-01" }).run();
+  db.insert(milestones).values({ id: "m1", okrId: "o1", text: "Bench 225", status: "done", resolvedAt: "2026-09-01" }).run();
+  db.insert(milestones).values({ id: "mf", okrId: "o1", text: "Sub-25 5k", status: "failed", resolvedAt: "2026-09-20" }).run();
   db.insert(goals)
     .values({ id: "g1", title: "Lift", daysPerWeek: 3, startDate: "2026-09-01", okrId: "o1", createdAt: NOW, updatedAt: NOW })
     .run();
@@ -38,7 +39,7 @@ describe("export / import", () => {
   it("round-trips every table", () => {
     const file = parseExportFile(JSON.parse(exportBackupString(src)));
     const result = importBackup(dst, file, { replace: false });
-    expect(result.inserted).toEqual({ okrs: 1, milestones: 1, goals: 1, checkIns: 2, reflections: 1, builds: 1 });
+    expect(result.inserted).toEqual({ okrs: 1, milestones: 2, goals: 1, checkIns: 2, reflections: 1, builds: 1 });
     expect(exportBackupString(dst).replace(/"exportedAt":"[^"]+"/, "")).toBe(
       exportBackupString(src).replace(/"exportedAt":"[^"]+"/, ""),
     );
@@ -66,10 +67,10 @@ describe("export / import", () => {
     src.update(milestones).set({ parentId: "m1" }).where(eq(milestones.id, "m2")).run();
 
     const file = parseExportFile(JSON.parse(exportBackupString(src)));
-    expect(file.milestones.map((m) => m.id)).toEqual(["m1", "m0", "m2"]); // child before parent in the file
+    expect(file.milestones.map((m) => m.id)).toEqual(["m1", "mf", "m0", "m2"]); // child before parent in the file
     importBackup(dst, file, { replace: false });
     const parents = Object.fromEntries(dst.select().from(milestones).all().map((m) => [m.id, m.parentId]));
-    expect(parents).toEqual({ m1: null, m0: "m2", m2: "m1" });
+    expect(parents).toEqual({ m1: null, mf: null, m0: "m2", m2: "m1" });
   });
 
   it("imports older backups without milestone parents as top level", () => {
@@ -77,6 +78,25 @@ describe("export / import", () => {
     for (const m of raw.milestones) delete m.parentId;
     importBackup(dst, parseExportFile(raw), { replace: false });
     expect(dst.select().from(milestones).all().every((m) => m.parentId === null)).toBe(true);
+  });
+
+  it("upgrades legacy milestone fields (done/doneAt) from older backups", () => {
+    const raw = JSON.parse(exportBackupString(src));
+    raw.milestones = raw.milestones.map(({ status, resolvedAt, ...rest }: { status: string; resolvedAt: string | null }) => ({
+      ...rest,
+      done: status === "done",
+      doneAt: status === "done" ? resolvedAt : null,
+    }));
+    importBackup(dst, parseExportFile(raw), { replace: false });
+    const byId = Object.fromEntries(dst.select().from(milestones).all().map((m) => [m.id, m]));
+    expect(byId.m1).toMatchObject({ status: "done", resolvedAt: "2026-09-01" });
+    expect(byId.mf).toMatchObject({ status: "open", resolvedAt: null });
+  });
+
+  it("migrates done flags to status and keeps their dates", () => {
+    const cols = src.$client.prepare("PRAGMA table_info(milestones)").all() as { name: string }[];
+    expect(cols.map((c) => c.name)).toEqual(expect.arrayContaining(["status", "resolved_at"]));
+    expect(cols.map((c) => c.name)).not.toContain("done");
   });
 
   it("rejects foreign files", () => {

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   flattenTree,
   isLocked,
+  milestoneCounts,
+  openDescendants,
   planDelete,
   planMove,
   wouldCycle,
@@ -9,8 +11,8 @@ import {
   type PositionUpdate,
 } from "@/lib/milestones";
 
-function m(id: string, parentId: string | null, position: number, done = false): MilestoneNode {
-  return { id, parentId, position, done, text: id.toUpperCase() };
+function m(id: string, parentId: string | null, position: number, status: MilestoneNode["status"] = "open"): MilestoneNode {
+  return { id, parentId, position, status, text: id.toUpperCase() };
 }
 
 /** Apply planned updates and return the rendered order as "depth:id". */
@@ -32,7 +34,7 @@ function ok(result: ReturnType<typeof planMove>): PositionUpdate[] {
 //   └ c
 // d
 // e
-const tree = [m("a", null, 0, true), m("b", "a", 0), m("c", "b", 0), m("d", null, 1), m("e", null, 2)];
+const tree = [m("a", null, 0, "done"), m("b", "a", 0), m("c", "b", 0), m("d", null, 1), m("e", null, 2)];
 
 describe("flattenTree", () => {
   it("walks depth-first by position", () => {
@@ -64,7 +66,40 @@ describe("isLocked", () => {
   });
   it("never locks a done or top-level milestone", () => {
     expect(isLocked(byId.get("d")!, byId)).toBe(false);
-    expect(isLocked({ ...byId.get("c")!, done: true }, byId)).toBe(false);
+    expect(isLocked({ ...byId.get("c")!, status: "done" }, byId)).toBe(false);
+    expect(isLocked({ ...byId.get("c")!, status: "failed" }, byId)).toBe(false);
+  });
+
+  it("keeps children of a failed parent locked", () => {
+    const failed = new Map(
+      [m("p", null, 0, "failed"), m("k", "p", 0)].map((x) => [x.id, x]),
+    );
+    expect(isLocked(failed.get("k")!, failed)).toBe(true);
+  });
+});
+
+describe("openDescendants", () => {
+  it("collects every open milestone beneath, skipping done and failed ones", () => {
+    const chain = [
+      m("r", null, 0),
+      m("x", "r", 0),
+      m("y", "x", 0, "done"),
+      m("z", "y", 0),
+      m("w", "r", 1, "failed"),
+      m("v", null, 1),
+    ];
+    expect(openDescendants(chain, "r").sort()).toEqual(["x", "z"]);
+    expect(openDescendants(chain, "v")).toEqual([]);
+  });
+});
+
+describe("milestoneCounts", () => {
+  it("tallies done and failed separately", () => {
+    expect(milestoneCounts([m("a", null, 0, "done"), m("b", null, 1, "failed"), m("c", null, 2)])).toEqual({
+      done: 1,
+      failed: 1,
+      total: 3,
+    });
   });
 });
 
