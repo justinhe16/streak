@@ -13,6 +13,9 @@ const okr = z.object({
   title: z.string(),
   description: z.string(),
   timeframe: z.string().nullable(),
+  // Added later; older backups have no OKR dates.
+  startDate: day.nullable().default(null),
+  endDate: day.nullable().default(null),
   status: z.enum(OKR_STATUSES),
   createdAt: stamp,
   updatedAt: stamp,

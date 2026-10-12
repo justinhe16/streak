@@ -43,7 +43,9 @@ cookie, so the page renders the same layout on reload.
 - **Goals**: your OKRs, each with a status you set by hand (active / success /
   missed), checkable milestones, and the weekly goals that belong to it. Click
   an OKR to open its detail view, which also lists linked builds. Goals that
-  aren't linked to an OKR are listed below.
+  aren't linked to an OKR are listed below. An OKR can have a date range (and
+  an optional label like "Q4 2026"); when its dates change, linked goals that
+  ended with it move along.
 - **Grid**: one row per Monday–Sunday week, padded with empty weeks on both
   sides. Each day shows how many goals you checked off that day. Each row is
   tinted red → yellow → green by that week's score. Click a past day to check
@@ -63,8 +65,15 @@ cookie, so the page renders the same layout on reload.
   - Every other goal is left out.
 
   The current week's row has a dashed border to show it can still change.
-- A goal's frequency and dates are fixed once it's created. Deleting a goal
-  removes its check-ins too, and every past week is rescored without it.
+- A goal's frequency is fixed once it's created. Its dates can grow but never
+  rewrite the past: the start can only move earlier once the goal has begun,
+  and the end can move later or earlier but never before today. Extending a
+  goal into past days makes those days count (check them off or they score as
+  misses). Deleting a goal removes its check-ins too, and every past week is
+  rescored without it.
+- `npm run db:backfill-okr-dates` turns existing free-text OKR timeframes into
+  dates and extends linked goals to match. It's a dry run by default; add
+  `--apply` to write (a snapshot is saved to `backups/` first).
 
 ## Data
 

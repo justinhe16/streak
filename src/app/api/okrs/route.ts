@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { milestones, okrs } from "@/lib/db/schema";
 import { getOkr, listOkrs } from "@/lib/queries";
-import { fail, readJson } from "@/lib/route-helpers";
+import { fail, isoDay, readJson } from "@/lib/route-helpers";
 
 export const runtime = "nodejs";
 
@@ -11,7 +11,12 @@ const createSchema = z.object({
   title: z.string().trim().min(1, "is required"),
   description: z.string().default(""),
   timeframe: z.string().trim().nullable().default(null),
+  startDate: isoDay.nullable().default(null),
+  endDate: isoDay.nullable().default(null),
   milestones: z.array(z.string().trim().min(1)).default([]),
+}).refine((o) => !o.startDate || !o.endDate || o.endDate >= o.startDate, {
+  path: ["endDate"],
+  message: "must be on or after the start date",
 });
 
 export async function GET() {

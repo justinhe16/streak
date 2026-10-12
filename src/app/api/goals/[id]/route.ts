@@ -2,19 +2,23 @@ import { count, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { checkIns, goals, okrs } from "@/lib/db/schema";
-import { definedOnly, fail, readJson } from "@/lib/route-helpers";
+import { todayIso } from "@/lib/dates";
+import { validateGoalDates } from "@/lib/goal-dates";
+import { definedOnly, fail, isoDay, readJson } from "@/lib/route-helpers";
 import { toGoal } from "@/lib/serialize";
 
 export const runtime = "nodejs";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-// Frequency and dates are fixed once a goal exists; strict() rejects attempts to send them.
+// Frequency is fixed once a goal exists; strict() rejects attempts to send it.
 const updateSchema = z
   .object({
     title: z.string().trim().min(1, "is required"),
     description: z.string(),
     okrId: z.string().nullable(),
+    startDate: isoDay,
+    endDate: isoDay.nullable(),
   })
   .partial()
   .strict();
@@ -35,6 +39,17 @@ export async function PATCH(request: Request, { params }: Ctx) {
 
     if (patch.okrId && !db.select({ id: okrs.id }).from(okrs).where(eq(okrs.id, patch.okrId)).get()) {
       return fail("That OKR no longer exists.", 400);
+    }
+
+    // Frequency stays fixed; dates can grow but never rewrite the past.
+    if (patch.startDate !== undefined || patch.endDate !== undefined) {
+      const current = getRow(id)!;
+      const next = {
+        startDate: patch.startDate ?? current.startDate,
+        endDate: patch.endDate === undefined ? current.endDate : patch.endDate,
+      };
+      const problem = validateGoalDates(current, next, todayIso());
+      if (problem) return fail(problem, 400);
     }
 
     db.update(goals)

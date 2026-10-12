@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { MILESTONE_STATUSES } from "@/lib/constants";
 import { milestones, okrs } from "@/lib/db/schema";
 import { applyPositionUpdates, okrMilestones } from "@/lib/milestone-writes";
+import { isTimeBound } from "@/lib/goal-dates";
 import { isLocked, openDescendants, planDelete } from "@/lib/milestones";
 import { definedOnly, fail, readJson } from "@/lib/route-helpers";
 import { toMilestone } from "@/lib/serialize";
@@ -45,8 +46,12 @@ export async function PATCH(request: Request, { params }: Ctx) {
     // Failing is only for time-bound OKRs, and takes everything still open beneath it down too.
     let cascade: string[] = [];
     if (changing && patch.status === "failed") {
-      const okr = db.select({ timeframe: okrs.timeframe }).from(okrs).where(eq(okrs.id, existing.okrId)).get();
-      if (!okr?.timeframe) return fail("Only OKRs with a timeframe can fail milestones.", 400);
+      const okr = db
+        .select({ timeframe: okrs.timeframe, endDate: okrs.endDate })
+        .from(okrs)
+        .where(eq(okrs.id, existing.okrId))
+        .get();
+      if (!okr || !isTimeBound(okr)) return fail("Only OKRs with dates or a timeframe can fail milestones.", 400);
       cascade = openDescendants(siblings, id);
     }
 

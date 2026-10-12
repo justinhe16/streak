@@ -99,6 +99,21 @@ describe("export / import", () => {
     expect(cols.map((c) => c.name)).not.toContain("done");
   });
 
+  it("round-trips OKR dates, and older backups import without them", () => {
+    src.update(okrs).set({ startDate: "2026-10-01", endDate: "2026-10-12" }).where(eq(okrs.id, "o1")).run();
+    const raw = JSON.parse(exportBackupString(src));
+    importBackup(dst, parseExportFile(raw), { replace: false });
+    expect(dst.select().from(okrs).get()).toMatchObject({ startDate: "2026-10-01", endDate: "2026-10-12" });
+
+    const legacy = JSON.parse(exportBackupString(src));
+    for (const o of legacy.okrs) {
+      delete o.startDate;
+      delete o.endDate;
+    }
+    importBackup(dst, parseExportFile(legacy), { replace: true });
+    expect(dst.select().from(okrs).get()).toMatchObject({ startDate: null, endDate: null });
+  });
+
   it("rejects foreign files", () => {
     expect(() => parseExportFile({ version: 2 })).toThrow(/Streak backup/);
   });

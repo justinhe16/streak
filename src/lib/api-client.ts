@@ -84,7 +84,7 @@ export const api = {
 
   createOkr: (input: CreateOkrInput) => request<{ okr: Okr }>("/api/okrs", json("POST", input)).then((r) => r.okr),
   updateOkr: (id: string, input: UpdateOkrInput) =>
-    request<{ okr: Okr }>(`/api/okrs/${enc(id)}`, json("PATCH", input)).then((r) => r.okr),
+    request<{ okr: Okr; movedGoals: number }>(`/api/okrs/${enc(id)}`, json("PATCH", input)),
   deleteOkr: (id: string) => request<{ ok: true }>(`/api/okrs/${enc(id)}`, { method: "DELETE" }),
 
   addMilestone: (okrId: string, text: string) =>

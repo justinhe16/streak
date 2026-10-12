@@ -19,8 +19,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api-client";
+import { validateGoalDates } from "@/lib/goal-dates";
 import type { Goal, Okr } from "@/lib/types";
-import { frequencyLabel, rangeLabel } from "./goal-utils";
+import { frequencyLabel } from "./goal-utils";
 
 const NO_OKR = "__none";
 
@@ -50,14 +51,20 @@ function GoalForm({ onOpenChange, goal, okrs, today, defaultOkrId, onSaved }: Go
   const [description, setDescription] = useState(goal?.description ?? "");
   const [okrId, setOkrId] = useState<string>(goal?.okrId ?? defaultOkrId ?? NO_OKR);
   const [daysPerWeek, setDaysPerWeek] = useState("7");
-  const [startDate, setStartDate] = useState(today);
-  const [perpetual, setPerpetual] = useState(true);
-  const [endDate, setEndDate] = useState("");
+  const [startDate, setStartDate] = useState(goal?.startDate ?? today);
+  const [perpetual, setPerpetual] = useState(goal ? goal.endDate === null : true);
+  const [endDate, setEndDate] = useState(goal?.endDate ?? "");
   const [saving, setSaving] = useState(false);
 
-  const rangeError = !perpetual && endDate !== "" && endDate < startDate ? "End date must be on or after the start." : null;
-  const canSave =
-    title.trim() !== "" && !saving && (editing || (startDate !== "" && (perpetual || endDate !== "") && !rangeError));
+  const nextEnd = perpetual ? null : endDate || null;
+  // Editing uses the same rules the server enforces: dates can grow but never rewrite the past.
+  const dateError = editing
+    ? validateGoalDates(goal, { startDate, endDate: nextEnd }, today)
+    : nextEnd !== null && nextEnd < startDate
+      ? "End must be on or after the start."
+      : null;
+  const datesComplete = startDate !== "" && (perpetual || endDate !== "");
+  const canSave = title.trim() !== "" && !saving && datesComplete && !dateError;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -66,7 +73,13 @@ function GoalForm({ onOpenChange, goal, okrs, today, defaultOkrId, onSaved }: Go
     const linked = okrId === NO_OKR ? null : okrId;
     try {
       if (editing) {
-        await api.updateGoal(goal.id, { title: title.trim(), description, okrId: linked });
+        const datesChanged = startDate !== goal.startDate || nextEnd !== goal.endDate;
+        await api.updateGoal(goal.id, {
+          title: title.trim(),
+          description,
+          okrId: linked,
+          ...(datesChanged ? { startDate, endDate: nextEnd } : {}),
+        });
       } else {
         await api.createGoal({
           title: title.trim(),
@@ -93,7 +106,7 @@ function GoalForm({ onOpenChange, goal, okrs, today, defaultOkrId, onSaved }: Go
           <DialogTitle>{editing ? "Edit goal" : "New goal"}</DialogTitle>
           <DialogDescription>
             {editing
-              ? "Frequency and dates are fixed once a goal exists."
+              ? "Frequency is fixed. Dates can grow but never rewrite the past."
               : "A habit you want to hit some number of days each week."}
           </DialogDescription>
         </DialogHeader>
@@ -114,58 +127,65 @@ function GoalForm({ onOpenChange, goal, okrs, today, defaultOkrId, onSaved }: Go
           />
         </div>
 
-        {editing ? (
-          <div className="bg-muted/50 text-muted-foreground flex items-center gap-2 rounded-lg px-3 py-2 text-xs">
-            <LockIcon className="size-3.5 shrink-0" />
-            <span>
-              {frequencyLabel(goal.daysPerWeek)} · {rangeLabel(goal)}
-            </span>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3 rounded-lg border border-dashed p-3">
+        <div className="flex flex-col gap-3 rounded-lg border border-dashed p-3">
+          {editing ? (
             <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-              <LockIcon className="size-3" /> Can&apos;t be changed after you create the goal.
+              <LockIcon className="size-3" /> {frequencyLabel(goal.daysPerWeek)}. Frequency can&apos;t change. Start can only
+              move earlier once begun; end can&apos;t move before today.
             </p>
+          ) : (
+            <>
+              <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                <LockIcon className="size-3" /> Frequency can&apos;t be changed after you create the goal.
+              </p>
+              <div className="flex flex-col gap-1.5">
+                <Label>Frequency</Label>
+                <Select value={daysPerWeek} onValueChange={setDaysPerWeek}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[7, 6, 5, 4, 3, 2, 1].map((n) => (
+                      <SelectItem key={n} value={String(n)}>
+                        {n === 7 ? "Every day" : `${n} day${n === 1 ? "" : "s"} a week`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
+          <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <Label>Frequency</Label>
-              <Select value={daysPerWeek} onValueChange={setDaysPerWeek}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[7, 6, 5, 4, 3, 2, 1].map((n) => (
-                    <SelectItem key={n} value={String(n)}>
-                      {n === 7 ? "Every day" : `${n} day${n === 1 ? "" : "s"} a week`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="goal-start">Start</Label>
+              <Input
+                id="goal-start"
+                type="date"
+                value={startDate}
+                // Once begun, the start can only move earlier.
+                max={editing && goal.startDate <= today ? goal.startDate : undefined}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="goal-start">Start</Label>
-                <Input id="goal-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="goal-end">End</Label>
-                <Input
-                  id="goal-end"
-                  type="date"
-                  value={perpetual ? "" : endDate}
-                  min={startDate}
-                  disabled={perpetual}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  aria-invalid={rangeError ? true : undefined}
-                />
-              </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="goal-end">End</Label>
+              <Input
+                id="goal-end"
+                type="date"
+                value={perpetual ? "" : endDate}
+                min={editing ? (startDate > today ? startDate : today) : startDate}
+                disabled={perpetual}
+                onChange={(e) => setEndDate(e.target.value)}
+                aria-invalid={dateError ? true : undefined}
+              />
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={perpetual} onCheckedChange={(v) => setPerpetual(v === true)} />
-              Perpetual (no end date)
-            </label>
-            {rangeError && <p className="text-destructive text-xs">{rangeError}</p>}
           </div>
-        )}
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={perpetual} onCheckedChange={(v) => setPerpetual(v === true)} />
+            Perpetual (no end date)
+          </label>
+          {dateError && <p className="text-destructive text-xs">{dateError}</p>}
+        </div>
 
         <div className="flex flex-col gap-1.5">
           <Label>OKR</Label>

@@ -2,9 +2,11 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { OKR_STATUSES } from "@/lib/constants";
 import { db } from "@/lib/db";
-import { okrs } from "@/lib/db/schema";
+import { goals, okrs } from "@/lib/db/schema";
+import { todayIso } from "@/lib/dates";
+import { followOkrDates } from "@/lib/goal-dates";
 import { getOkr } from "@/lib/queries";
-import { definedOnly, fail, readJson } from "@/lib/route-helpers";
+import { definedOnly, fail, isoDay, readJson } from "@/lib/route-helpers";
 
 export const runtime = "nodejs";
 
@@ -15,6 +17,8 @@ const updateSchema = z
     title: z.string().trim().min(1, "is required"),
     description: z.string(),
     timeframe: z.string().trim().nullable(),
+    startDate: isoDay.nullable(),
+    endDate: isoDay.nullable(),
     status: z.enum(OKR_STATUSES),
   })
   .partial()
@@ -31,11 +35,32 @@ export async function PATCH(request: Request, { params }: Ctx) {
     if (Object.keys(patch).length === 0) return fail("No updatable fields were provided.", 400);
     if (patch.timeframe === "") patch.timeframe = null;
 
-    db.update(okrs)
-      .set({ ...patch, updatedAt: new Date().toISOString() })
-      .where(eq(okrs.id, id))
-      .run();
-    return Response.json({ okr: getOkr(db, id) });
+    const before = db.select().from(okrs).where(eq(okrs.id, id)).get()!;
+    const after = {
+      startDate: patch.startDate === undefined ? before.startDate : patch.startDate,
+      endDate: patch.endDate === undefined ? before.endDate : patch.endDate,
+    };
+    if (after.startDate && after.endDate && after.endDate < after.startDate) {
+      return fail("endDate: must be on or after the start date", 400);
+    }
+
+    // Linked goals that were aligned with the old dates follow the new ones.
+    const linked = db.select().from(goals).where(eq(goals.okrId, id)).all();
+    const moves = followOkrDates(linked, before, after, todayIso());
+    const now = new Date().toISOString();
+    db.$client.transaction(() => {
+      db.update(okrs)
+        .set({ ...patch, updatedAt: now })
+        .where(eq(okrs.id, id))
+        .run();
+      for (const m of moves) {
+        db.update(goals)
+          .set({ startDate: m.startDate, endDate: m.endDate, updatedAt: now })
+          .where(eq(goals.id, m.id))
+          .run();
+      }
+    })();
+    return Response.json({ okr: getOkr(db, id), movedGoals: moves.length });
   } catch (err) {
     console.error("[PATCH /api/okrs/:id]", err);
     return fail("Could not update the OKR.", 500);

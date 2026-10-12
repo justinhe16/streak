@@ -39,19 +39,29 @@ function OkrForm({ onOpenChange, okr, onSaved }: OkrDialogProps) {
   const [title, setTitle] = useState(okr?.title ?? "");
   const [description, setDescription] = useState(okr?.description ?? "");
   const [timeframe, setTimeframe] = useState(okr?.timeframe ?? "");
+  const [startDate, setStartDate] = useState(okr?.startDate ?? "");
+  const [endDate, setEndDate] = useState(okr?.endDate ?? "");
   const [milestones, setMilestones] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const canSave = title.trim() !== "" && !saving;
+  const rangeError = startDate && endDate && endDate < startDate ? "End must be on or after the start." : null;
+  const canSave = title.trim() !== "" && !saving && !rangeError;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSave) return;
     setSaving(true);
     try {
-      const fields = { title: title.trim(), description, timeframe: timeframe.trim() || null };
+      const fields = {
+        title: title.trim(),
+        description,
+        timeframe: timeframe.trim() || null,
+        startDate: startDate || null,
+        endDate: endDate || null,
+      };
       if (editing) {
-        await api.updateOkr(okr.id, fields);
+        const { movedGoals } = await api.updateOkr(okr.id, fields);
+        if (movedGoals > 0) toast(`Moved ${movedGoals} goal${movedGoals === 1 ? "" : "s"} to the new dates`);
       } else {
         await api.createOkr({
           ...fields,
@@ -88,13 +98,40 @@ function OkrForm({ onOpenChange, okr, onSaved }: OkrDialogProps) {
           <Textarea id="okr-description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
         </div>
 
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="okr-start">Start</Label>
+            <Input id="okr-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="okr-end">End</Label>
+            <Input
+              id="okr-end"
+              type="date"
+              value={endDate}
+              min={startDate || undefined}
+              onChange={(e) => setEndDate(e.target.value)}
+              aria-invalid={rangeError ? true : undefined}
+            />
+          </div>
+          <p className="text-muted-foreground col-span-2 -mt-1 text-xs">
+            {rangeError ? (
+              <span className="text-destructive">{rangeError}</span>
+            ) : editing ? (
+              "Optional. Goals that end with this OKR move with it."
+            ) : (
+              "Optional."
+            )}
+          </p>
+        </div>
+
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="okr-timeframe">Timeframe</Label>
+          <Label htmlFor="okr-timeframe">Label</Label>
           <Input
             id="okr-timeframe"
             value={timeframe}
             onChange={(e) => setTimeframe(e.target.value)}
-            placeholder="Optional, e.g. 2026"
+            placeholder="Optional, e.g. Q4 2026. Defaults to the dates."
           />
         </div>
 

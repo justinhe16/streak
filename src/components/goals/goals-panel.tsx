@@ -22,6 +22,7 @@ import { averageCredit, type CheckInSet } from "@/lib/streak";
 import type { Goal, Okr, Snapshot } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { GoalDialog } from "./goal-dialog";
+import { okrLabel } from "./goal-utils";
 import { GoalRow } from "./goal-row";
 import { OKR_STATUS_STYLES, OkrCard } from "./okr-card";
 import { OkrDialog } from "./okr-dialog";
@@ -256,7 +257,7 @@ function OkrSummary({
           <span className={cn("rounded-full px-1.5 py-px text-[10px] font-medium", OKR_STATUS_STYLES[okr.status])}>
             {OKR_STATUS_LABELS[okr.status]}
           </span>
-          {okr.timeframe && <span className="text-muted-foreground text-[11px]">{okr.timeframe}</span>}
+          {okrLabel(okr) && <span className="text-muted-foreground text-[11px]">{okrLabel(okr)}</span>}
           <span className="text-muted-foreground ml-auto text-[11px] tabular-nums">
             {done}/{total} milestones
             {failed > 0 && <span className="text-destructive"> · {failed} failed</span>}

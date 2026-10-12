@@ -29,6 +29,8 @@ import { GoalRow } from "./goal-row";
 import { ROW_INSET, Section, StatChip } from "./layout";
 import { MilestoneList } from "./milestone-list";
 import { milestoneCounts } from "@/lib/milestones";
+import { isTimeBound } from "@/lib/goal-dates";
+import { okrLabel } from "./goal-utils";
 
 export const OKR_STATUS_STYLES: Record<OkrStatus, string> = {
   active: "bg-muted text-muted-foreground",
@@ -78,6 +80,7 @@ export function OkrCard({
   const avg = averageCredit(goals, checkIns, today);
   const avgColor = scoreColor(avg);
   const { done, failed, total } = milestoneCounts(okr.milestones);
+  const label = okrLabel(okr);
 
   return (
     <article className={cn("flex flex-col gap-6 px-4 py-6 sm:px-6 sm:py-7", className)}>
@@ -147,9 +150,9 @@ export function OkrCard({
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
-          {okr.timeframe && (
+          {label && (
             <span className="text-muted-foreground border-border flex h-6 items-center rounded-full border px-2.5 text-[11px] font-medium">
-              {okr.timeframe}
+              {label}
             </span>
           )}
         </div>
@@ -165,7 +168,7 @@ export function OkrCard({
           <Section label="Milestones">
             <MilestoneList
               okrId={okr.id}
-              canFail={okr.timeframe !== null}
+              canFail={isTimeBound(okr)}
               milestones={okr.milestones}
               onChanged={onChanged}
             />

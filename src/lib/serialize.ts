@@ -41,6 +41,8 @@ export function toOkr(row: OkrRow, milestones: MilestoneRow[]): Okr {
     title: row.title,
     description: row.description,
     timeframe: row.timeframe,
+    startDate: row.startDate,
+    endDate: row.endDate,
     status: (OKR_STATUSES as readonly string[]).includes(row.status) ? (row.status as OkrStatus) : "active",
     milestones: milestones
       .filter((m) => m.okrId === row.id)

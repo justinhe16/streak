@@ -31,7 +31,7 @@ const MAX_INDENT = 6;
 
 type MilestoneListProps = {
   okrId: string;
-  /** Failing is only offered on time-bound OKRs (ones with a timeframe). */
+  /** Failing is only offered on time-bound OKRs (ones with dates or a timeframe label). */
   canFail: boolean;
   milestones: Milestone[];
   onChanged: () => Promise<void>;

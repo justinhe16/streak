@@ -7,8 +7,11 @@ export const okrs = sqliteTable("okrs", {
   id: text("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description").notNull().default(""),
-  /** Free-form, e.g. "2026" or "H1 2027". */
+  /** Optional custom label, e.g. "Q4 2026". When empty the UI shows the date range. */
   timeframe: text("timeframe"),
+  /** Optional date range. Linked goals aligned with it follow when it changes. */
+  startDate: text("start_date"),
+  endDate: text("end_date"),
   /** Set by hand: `active` until you call it a `success` or `missed`. */
   status: text("status").notNull().default("active"),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
@@ -38,7 +41,7 @@ export const milestones = sqliteTable(
   ],
 );
 
-/** Frequency and date range are fixed once created; only text and the OKR link change. */
+/** Frequency is fixed once created. Dates can grow but never rewrite the past (see lib/goal-dates.ts). */
 export const goals = sqliteTable(
   "goals",
   {

@@ -32,7 +32,10 @@ export type Okr = {
   id: string;
   title: string;
   description: string;
+  /** Optional custom label; the UI falls back to the date range. */
   timeframe: string | null;
+  startDate: string | null;
+  endDate: string | null;
   status: OkrStatus;
   milestones: Milestone[];
   createdAt: string;
@@ -71,16 +74,21 @@ export type CreateGoalInput = {
   okrId?: string | null;
 };
 
-export type UpdateGoalInput = Partial<Pick<Goal, "title" | "description" | "okrId">>;
+/** Frequency is fixed; dates follow the rules in lib/goal-dates.ts. */
+export type UpdateGoalInput = Partial<Pick<Goal, "title" | "description" | "okrId" | "startDate" | "endDate">>;
 
 export type CreateOkrInput = {
   title: string;
   description?: string;
   timeframe?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
   milestones?: string[];
 };
 
-export type UpdateOkrInput = Partial<Pick<Okr, "title" | "description" | "timeframe" | "status">>;
+export type UpdateOkrInput = Partial<
+  Pick<Okr, "title" | "description" | "timeframe" | "startDate" | "endDate" | "status">
+>;
 
 export type UpdateMilestoneInput = Partial<Pick<Milestone, "text" | "status">>;
 
